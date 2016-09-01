@@ -65,6 +65,7 @@ int holdButtons(SceCtrlData *pad, uint32_t buttons, uint64_t time);
 
 int removeEndSlash(char *path);
 int addEndSlash(char *path);
+int getVpkDir(char *path);
 
 void getSizeString(char *string, uint64_t size);
 void getDateString(char *string, int date_format, SceDateTime *time);

@@ -224,6 +224,15 @@ int addEndSlash(char *path) {
 	return 0;
 }
 
+
+int getVpkDir(char *path) {
+	int len = strlen(path);
+	path[len - 4] = '/';
+	path[len - 3] = '\0';
+	return 1;
+}
+
+
 void getSizeString(char *string, uint64_t size) {
 	double double_size = (double)size;
 

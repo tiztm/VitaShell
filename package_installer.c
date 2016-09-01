@@ -234,38 +234,7 @@ int install_thread(SceSize args_size, InstallArguments *args) {
 	}
 
 	// Check permissions
-	char path[MAX_PATH_LENGTH];
-	snprintf(path, MAX_PATH_LENGTH, "%s/eboot.bin", args->file);
-	SceUID fd = archiveFileOpen(path, SCE_O_RDONLY, 0);
-	if (fd >= 0) {
-		char buffer[0x88];
-		archiveFileRead(fd, buffer, sizeof(buffer));
-		archiveFileClose(fd);
-
-		// Team molecule's request: Full permission access warning
-		uint64_t authid = *(uint64_t *)(buffer + 0x80);
-		if (authid == 0x2F00000000000001 || authid == 0x2F00000000000003) {
-			closeWaitDialog();
-
-			initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO, language_container[INSTALL_WARNING]);
-			dialog_step = DIALOG_STEP_INSTALL_WARNING;
-
-			// Wait for response
-			while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
-				sceKernelDelayThread(1000);
-			}
-
-			// Cancelled
-			if (dialog_step == DIALOG_STEP_CANCELLED) {
-				closeWaitDialog();
-				goto EXIT;
-			}
-
-			// Init again
-			initMessageDialog(MESSAGE_DIALOG_PROGRESS_BAR, language_container[INSTALLING]);
-			dialog_step = DIALOG_STEP_INSTALLING;
-		}
-	}
+	//我们这些玩盗版的不需要CheckPermission，^_^
 
 	// Src path
 	char src_path[MAX_PATH_LENGTH];
@@ -310,8 +279,118 @@ int install_thread(SceSize args_size, InstallArguments *args) {
 	// Set progress to 100%
 	sceMsgDialogProgressBarSetValue(SCE_MSG_DIALOG_PROGRESSBAR_TARGET_BAR_DEFAULT, 100);
 	sceKernelDelayThread(COUNTUP_WAIT);
+    // Close
+    closeWaitDialog();
 
-	// Close
+
+    //在这里拷贝同目录下的同名目录内所有内容到app目录下
+    strcpy(src_path, args->file);
+    getVpkDir(src_path);
+    /** 打印app所在目录
+    initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,src_path);
+    dialog_step = DIALOG_STEP_INSTALL_WARNING;
+    // Wait for response
+    while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
+        sceKernelDelayThread(1000);
+    }
+
+
+
+
+    if (archiveFileGetstat(path, &stat) < 0) {
+    		FileList list;
+    		memset(&list, 0, sizeof(FileList));
+    		fileListGetArchiveEntries(&list, path);
+
+    		FileListEntry *entry = list.head->next; // Ignore ..
+
+    		int i;
+    		for (i = 0; i < list.length - 1; i++) {
+    			char *new_path = malloc(strlen(path) + strlen(entry->name) + 2);
+    			snprintf(new_path, MAX_PATH_LENGTH, "%s%s", path, entry->name);
+
+    			getArchivePathInfo(new_path, size, folders, files);
+
+    			free(new_path);
+
+    			entry = entry->next;
+    		}
+
+    		if (folders)
+    			(*folders)++;
+
+    		fileListEmpty(&list);
+    	}
+
+
+    **/
+    FileList copy_list;
+
+    memset(&copy_list, 0, sizeof(FileList));
+
+
+    res = fileListGetEntries(&copy_list,src_path);
+
+
+
+
+    //文件夹不存在，不做
+    if (res >= 0) {
+
+         //将同目录下与vpk同名的文件夹作为待移动目录
+
+        CopyArguments args;
+
+        char src_file_path[MAX_PATH_LENGTH], dst_path[MAX_PATH_LENGTH];
+
+
+        FileListEntry *copy_entry = NULL;
+
+        copy_entry = copy_list.head;
+
+        int i;
+        for (i = 0; i < copy_list.length; i++) {
+
+            if (strcmp(copy_entry->name, ".")!=0 && strcmp(copy_entry->name, "..") != 0)
+            {
+                snprintf(src_file_path, MAX_PATH_LENGTH, "%s%s", src_path, copy_entry->name);
+                snprintf(dst_path, MAX_PATH_LENGTH, "%s%s", "ux0:app/PCSH00119/", copy_entry->name);
+
+                initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,src_file_path);
+                    dialog_step = DIALOG_STEP_INSTALL_WARNING;
+                    // Wait for response
+                    while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
+                        sceKernelDelayThread(1000);
+                    }
+
+                 initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,dst_path);
+                                dialog_step = DIALOG_STEP_INSTALL_WARNING;
+                                // Wait for response
+                                while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
+                                    sceKernelDelayThread(1000);
+                                }
+
+
+
+
+                int res = sceIoRename(src_file_path, dst_path);
+                if (res < 0) {
+                    closeWaitDialog();
+                    errorDialog(res);
+                    goto EXIT;
+                }
+
+            }
+
+            copy_entry = copy_entry->next;
+        }
+
+
+
+    }
+
+
+
 	sceMsgDialogClose();
 
 	dialog_step = DIALOG_STEP_INSTALLED;
@@ -319,6 +398,7 @@ int install_thread(SceSize args_size, InstallArguments *args) {
 EXIT:
 	if (thid >= 0)
 		sceKernelWaitThreadEnd(thid, NULL, NULL);
+
 
 	// Unlock power timers
 	powerUnlock();

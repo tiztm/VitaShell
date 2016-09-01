@@ -22,19 +22,7 @@
 #include "utils.h"
 
 static char *mount_points[] = {
-	"app0:",
-	"gro0:",
-	"grw0:",
-	"os0:",
-	"pd0:",
-	"sa0:",
-	"savedata0:",
-	"tm0:",
-	"ud0:",
-	"ur0:",
-	"ux0:",
-	"vd0:",
-	"vs0:",
+    "ux0:",
 };
 
 #define N_MOUNT_POINTS (sizeof(mount_points) / sizeof(char **))
