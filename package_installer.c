@@ -36,6 +36,8 @@
 #define PACKAGE_DIR PACKAGE_PARENT "/pkg"
 #define HEAD_BIN PACKAGE_DIR "/sce_sys/package/head.bin"
 
+static char *title_id;
+
 void loadScePaf() {
 	uint32_t ptr[0x100] = { 0 };
 	ptr[0] = 0;
@@ -169,7 +171,7 @@ int makeHeadBin() {
 		return -1;
 
 	// Get title id
-	char *title_id = get_title_id(PACKAGE_DIR "/sce_sys/param.sfo");
+	title_id = get_title_id(PACKAGE_DIR "/sce_sys/param.sfo");
 	if (!title_id)// || strlen(title_id) != 9) // Enforce TITLEID format?
 		return -2;
 
@@ -206,7 +208,7 @@ int makeHeadBin() {
 	WriteFile(HEAD_BIN, head_bin, sizeof(base_head_bin));
 
 	free(head_bin);
-	free(title_id);
+
 
 	return 0;
 }
@@ -286,6 +288,9 @@ int install_thread(SceSize args_size, InstallArguments *args) {
     //在这里拷贝同目录下的同名目录内所有内容到app目录下
     strcpy(src_path, args->file);
     getVpkDir(src_path);
+
+
+
     /** 打印app所在目录
     initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,src_path);
     dialog_step = DIALOG_STEP_INSTALL_WARNING;
@@ -293,36 +298,6 @@ int install_thread(SceSize args_size, InstallArguments *args) {
     while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
         sceKernelDelayThread(1000);
     }
-
-
-
-
-    if (archiveFileGetstat(path, &stat) < 0) {
-    		FileList list;
-    		memset(&list, 0, sizeof(FileList));
-    		fileListGetArchiveEntries(&list, path);
-
-    		FileListEntry *entry = list.head->next; // Ignore ..
-
-    		int i;
-    		for (i = 0; i < list.length - 1; i++) {
-    			char *new_path = malloc(strlen(path) + strlen(entry->name) + 2);
-    			snprintf(new_path, MAX_PATH_LENGTH, "%s%s", path, entry->name);
-
-    			getArchivePathInfo(new_path, size, folders, files);
-
-    			free(new_path);
-
-    			entry = entry->next;
-    		}
-
-    		if (folders)
-    			(*folders)++;
-
-    		fileListEmpty(&list);
-    	}
-
-
     **/
     FileList copy_list;
 
@@ -331,18 +306,11 @@ int install_thread(SceSize args_size, InstallArguments *args) {
 
     res = fileListGetEntries(&copy_list,src_path);
 
-
-
-
     //文件夹不存在，不做
     if (res >= 0) {
-
          //将同目录下与vpk同名的文件夹作为待移动目录
-
         CopyArguments args;
-
         char src_file_path[MAX_PATH_LENGTH], dst_path[MAX_PATH_LENGTH];
-
 
         FileListEntry *copy_entry = NULL;
 
@@ -354,44 +322,34 @@ int install_thread(SceSize args_size, InstallArguments *args) {
             if (strcmp(copy_entry->name, ".")!=0 && strcmp(copy_entry->name, "..") != 0)
             {
                 snprintf(src_file_path, MAX_PATH_LENGTH, "%s%s", src_path, copy_entry->name);
-                snprintf(dst_path, MAX_PATH_LENGTH, "%s%s", "ux0:app/PCSH00119/", copy_entry->name);
-
-                initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,src_file_path);
-                    dialog_step = DIALOG_STEP_INSTALL_WARNING;
-                    // Wait for response
-                    while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
-                        sceKernelDelayThread(1000);
-                    }
-
-                 initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,dst_path);
-                                dialog_step = DIALOG_STEP_INSTALL_WARNING;
-                                // Wait for response
-                                while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
-                                    sceKernelDelayThread(1000);
-                                }
-
-
-
-
+                snprintf(dst_path, MAX_PATH_LENGTH, "%s%s%s%s", "ux0:app/",title_id,"/", copy_entry->name);
                 int res = sceIoRename(src_file_path, dst_path);
                 if (res < 0) {
                     closeWaitDialog();
                     errorDialog(res);
                     goto EXIT;
                 }
-
             }
-
             copy_entry = copy_entry->next;
         }
-
-
 
     }
 
 
+     //安装完成提示
+     initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,"Game ",title_id," install OK!");
+        dialog_step = DIALOG_STEP_INSTALL_WARNING;
+        // Wait for response
+        while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
+            sceKernelDelayThread(1000);
+        }
+
+    fileListEmpty(&copy_list);
+
 
 	sceMsgDialogClose();
+
+	free(title_id);
 
 	dialog_step = DIALOG_STEP_INSTALLED;
 
