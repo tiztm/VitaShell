@@ -98,6 +98,7 @@ void loadLanguage(int id) {
 	readConfigBuffer(&_binary_resources_english_us_txt_start, (int)&_binary_resources_english_us_txt_size, language_entries, sizeof(language_entries) / sizeof(ConfigEntry));
 
 	// Load custom config file
+	//此处存在bug，可能有用户无法成功加载自己的语言文件
 	if (use_custom_config) {
 		if (id >= 0 && id < (sizeof(lang) / sizeof(char *))) {
 			char path[128];

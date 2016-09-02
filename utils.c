@@ -232,6 +232,12 @@ int getVpkDir(char *path) {
 	return 1;
 }
 
+int getRenameDir(char *path) {
+	int len = strlen(path);
+	path[len - 2] = '\0';
+	return 1;
+}
+
 
 void getSizeString(char *string, uint64_t size) {
 	double double_size = (double)size;

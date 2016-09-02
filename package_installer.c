@@ -291,60 +291,76 @@ int install_thread(SceSize args_size, InstallArguments *args) {
 
 
 
-    /** 打印app所在目录
+    /** 打印app所在目录*
     initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,src_path);
     dialog_step = DIALOG_STEP_INSTALL_WARNING;
     // Wait for response
     while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
         sceKernelDelayThread(1000);
     }
-    **/
-    FileList copy_list;
+    */
 
-    memset(&copy_list, 0, sizeof(FileList));
+    //2. 防止移动app等目录
+    //如果发现在ux下并且是一级目录则不复制
+    int countSlash = 0;
+
+    int len = strlen(src_path);
 
 
-    res = fileListGetEntries(&copy_list,src_path);
+    int i;
+    for (i = 0; i < len-1; i++) {
+        if(src_path[i] == '/')
+            countSlash++;
+    }
 
-    //文件夹不存在，不做
-    if (res >= 0) {
-         //将同目录下与vpk同名的文件夹作为待移动目录
-        CopyArguments args;
-        char src_file_path[MAX_PATH_LENGTH], dst_path[MAX_PATH_LENGTH];
+    if(countSlash>0)
+    {
+        FileList copy_list;
+        memset(&copy_list, 0, sizeof(FileList));
+        res = fileListGetEntries(&copy_list,src_path);
 
-        FileListEntry *copy_entry = NULL;
+        //文件夹不存在，不做
+        if (res >= 0) {
+             //将同目录下与vpk同名的文件夹作为待移动目录
+            char src_file_path[MAX_PATH_LENGTH], dst_path[MAX_PATH_LENGTH];
 
-        copy_entry = copy_list.head;
+            FileListEntry *copy_entry = NULL;
 
-        int i;
-        for (i = 0; i < copy_list.length; i++) {
+            copy_entry = copy_list.head;
 
-            if (strcmp(copy_entry->name, ".")!=0 && strcmp(copy_entry->name, "..") != 0)
-            {
-                snprintf(src_file_path, MAX_PATH_LENGTH, "%s%s", src_path, copy_entry->name);
-                snprintf(dst_path, MAX_PATH_LENGTH, "%s%s%s%s", "ux0:app/",title_id,"/", copy_entry->name);
-                int res = sceIoRename(src_file_path, dst_path);
-                if (res < 0) {
-                    closeWaitDialog();
-                    errorDialog(res);
-                    goto EXIT;
+            int i;
+            for (i = 0; i < copy_list.length; i++) {
+
+                if (strcmp(copy_entry->name, ".")!=0 && strcmp(copy_entry->name, "..") != 0)
+                {
+                    snprintf(src_file_path, MAX_PATH_LENGTH, "%s%s", src_path, copy_entry->name);
+                    snprintf(dst_path, MAX_PATH_LENGTH, "%s%s%s%s", "ux0:app/",title_id,"/", copy_entry->name);
+                    int res = sceIoRename(src_file_path, dst_path);
+                    if (res < 0) {
+                        closeWaitDialog();
+                        errorDialog(res);
+                        goto EXIT;
+                    }
                 }
+                copy_entry = copy_entry->next;
             }
-            copy_entry = copy_entry->next;
+
+             //1. 安装完成将vpk修改名称,防止再次安装
+             if(copy_list.length>1)
+             {
+                 strcpy(src_path, args->file);
+                 getRenameDir(src_path);
+                 sceIoRename(args->file, src_path);
+             }
+
         }
+        fileListEmpty(&copy_list);
+
+
 
     }
 
 
-     //安装完成提示
-     initMessageDialog(SCE_MSG_DIALOG_BUTTON_TYPE_YESNO,"Game ",title_id," install OK!");
-        dialog_step = DIALOG_STEP_INSTALL_WARNING;
-        // Wait for response
-        while (dialog_step == DIALOG_STEP_INSTALL_WARNING) {
-            sceKernelDelayThread(1000);
-        }
-
-    fileListEmpty(&copy_list);
 
 
 	sceMsgDialogClose();
